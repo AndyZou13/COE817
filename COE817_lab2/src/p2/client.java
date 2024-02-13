@@ -13,6 +13,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
+import java.util.Arrays;
 import java.util.Base64;
 
 import javax.crypto.Cipher;
@@ -37,6 +38,7 @@ public class client {
 		byte[] encryptedIn = null;
 		byte[] encryptedIn1 = null;
 		byte[] encryptedIn2 = null;
+		byte[] encryptedOut = null;
 		try {
 			Socket client = new Socket (host, port);
 			System.out.println("Connected: " + client.getRemoteSocketAddress()); 
@@ -63,6 +65,7 @@ public class client {
 			encryptedIn1 = (byte[]) in.readObject();
 			encryptedIn2 = (byte[]) in.readObject();
 			String nonceB = (String) in.readObject();
+			nonceB = nonceB.trim();
 			System.out.println("Received 2 encrypted: " + encryptedIn1.toString() + encryptedIn2.toString() + "|" + nonceB);
 			
 			ciph = Cipher.getInstance("RSA/ECB/PKCS1Padding");
@@ -75,6 +78,17 @@ public class client {
 			ciph.init(Cipher.DECRYPT_MODE, pubKeyB);
 			encryptedIn = ciph.doFinal(encryptedIn);
 			System.out.println("Received 2 decrypted: " + new String(encryptedIn));
+			
+			ciph = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			ciph.init(Cipher.ENCRYPT_MODE, privKey);
+			encryptedOut = ciph.doFinal(nonceB.getBytes());
+			byte[] part1 = Arrays.copyOfRange(encryptedOut, 0, encryptedOut.length/2);
+			byte[] part2 = Arrays.copyOfRange(encryptedOut, encryptedOut.length/2, encryptedOut.length);
+			ciph.init(Cipher.ENCRYPT_MODE, pubKeyB);
+			part1 = ciph.doFinal(part1);
+			part2 = ciph.doFinal(part2);
+			out.writeObject(part1);
+			out.writeObject(part2);
 			
 		} catch (SocketException e) {
 			System.out.println("Socket timed out.");
