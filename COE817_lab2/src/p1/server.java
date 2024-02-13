@@ -13,7 +13,7 @@ public class server {
 	
 	public static void main(String[] args) {
 		String id = "Bob";
-		int port = 50001;
+		int port = 50000;
 		ServerSocket s;
 		String keyAB = "LAB2KEYAB";
 		Cipher ciph;
@@ -42,8 +42,8 @@ public class server {
 			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
 			ciph.init(Cipher.ENCRYPT_MODE, sec);
 			
-			String messageOut = nonceB + "|" + id + "|" + ar[1];
-			encryptedOut = ciph.doFinal(messageOut.getBytes());
+			String messageOut = nonceB + "|" +  id + "|" + ar[1];
+			encryptedOut = ciph.doFinal(messageOut.trim().getBytes());
 			DataOutputStream out = new DataOutputStream(server.getOutputStream());
 			out.writeInt(encryptedOut.length);
 			out.write(encryptedOut);

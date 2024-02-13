@@ -14,7 +14,7 @@ public class client {
 
 	public static void main(String[] args) {
 		String id = "Alice";
-		int port = 50001;
+		int port = 50000;
 		String host = "localhost";
 		String keyAB = "LAB2KEYAB";
 		Cipher ciph;
@@ -47,7 +47,7 @@ public class client {
 			sec = fact.generateSecret(new DESKeySpec(b));
 			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
 			ciph.init(Cipher.DECRYPT_MODE, sec);
-			
+
 			decryptedIn = ciph.doFinal(encryptedIn);
 			System.out.println("Recieved 2 decrypted: " + new String(decryptedIn));
 			String decryp = new String(decryptedIn);
