@@ -15,6 +15,7 @@ import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 
 import javax.crypto.Cipher;
@@ -70,11 +71,13 @@ public static void main(String[] args) {
 			ciph = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 			ciph.init(Cipher.ENCRYPT_MODE, privKey);
 			encryptedOut = ciph.doFinal(nonceA.getBytes());
-			System.out.println(encryptedOut.length);
+			byte[] part1 = Arrays.copyOfRange(encryptedOut, 0, encryptedOut.length/2);
+			byte[] part2= Arrays.copyOfRange(encryptedOut, encryptedOut.length/2, encryptedOut.length);
 			ciph.init(Cipher.ENCRYPT_MODE, pubKeyA);
-			encryptedOut = ciph.doFinal(encryptedOut);
-			
-			out.writeObject(encryptedOut);
+			part1 = ciph.doFinal(part1);
+			part2 = ciph.doFinal(part2);
+			out.writeObject(part1);
+			out.writeObject(part2);
 			out.writeObject(nonce);
 			
 			} catch (SocketException e) {

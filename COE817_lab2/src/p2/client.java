@@ -35,6 +35,8 @@ public class client {
 		PublicKey pubKeyB;
 		PrivateKey privKey;
 		byte[] encryptedIn = null;
+		byte[] encryptedIn1 = null;
+		byte[] encryptedIn2 = null;
 		try {
 			Socket client = new Socket (host, port);
 			System.out.println("Connected: " + client.getRemoteSocketAddress()); 
@@ -58,15 +60,21 @@ public class client {
 			
 			out.writeObject(message);
 			
-			encryptedIn = (byte[]) in.readObject();
-			System.out.println("Received 2 encrypted: " + encryptedIn.toString());
+			encryptedIn1 = (byte[]) in.readObject();
+			encryptedIn2 = (byte[]) in.readObject();
 			String nonceB = (String) in.readObject();
+			System.out.println("Received 2 encrypted: " + encryptedIn1.toString() + encryptedIn2.toString() + "|" + nonceB);
 			
 			ciph = Cipher.getInstance("RSA/ECB/PKCS1Padding");
 			ciph.init(Cipher.DECRYPT_MODE, privKey);
-			encryptedIn = ciph.doFinal(encryptedIn);
+			encryptedIn1 = ciph.doFinal(encryptedIn1);
+			encryptedIn2 = ciph.doFinal(encryptedIn2);
+			encryptedIn = new byte[encryptedIn1.length + encryptedIn2.length];
+			System.arraycopy(encryptedIn1, 0, encryptedIn, 0, encryptedIn1.length);
+			System.arraycopy(encryptedIn2, 0, encryptedIn, encryptedIn1.length, encryptedIn2.length);
 			ciph.init(Cipher.DECRYPT_MODE, pubKeyB);
 			encryptedIn = ciph.doFinal(encryptedIn);
+			System.out.println("Received 2 decrypted: " + new String(encryptedIn));
 			
 		} catch (SocketException e) {
 			System.out.println("Socket timed out.");
