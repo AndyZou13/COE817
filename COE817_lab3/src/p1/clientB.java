@@ -22,8 +22,8 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
-public class clientA {
-	static String id = "clientA";
+public class clientB {
+	static String id = "clientB";
 	static String host = "localhost";
 	static int port = 50000;
 	static Socket client;
@@ -140,12 +140,6 @@ public class clientA {
 
 			decodeRSAserv(c);
 			masterKey = new String(decrypted);
-			
-			Scanner s = new Scanner(System.in);
-			System.out.println("Who do you wanna transmit to?: ");
-			String reciever = s.nextLine();
-			message = id + "|" + reciever;
-			out.writeObject(message);
 			
 			encrypted = (byte[]) in.readObject();
 			SecretKeyFactory fact = SecretKeyFactory.getInstance("DES");
