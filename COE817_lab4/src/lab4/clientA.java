@@ -3,24 +3,30 @@ package lab4;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.util.Base64;
+import java.util.Scanner;
 
 import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.DESKeySpec;
 
-public class clientMain {
+public class clientA {
 	
 	static Socket client;
 	static String host = "localhost";
 	static int port = 50000;
 	static String nonce;
 	static String nonceServ;
-	static String clientID = "clientA";
+	static String clientID = "clientC";
 	
 	static KeyPairGenerator keyGen;
 	static KeyPair keyPair;
@@ -28,12 +34,18 @@ public class clientMain {
 	static PublicKey pub;
 	static PublicKey pubServ;
 	static String sharedKey;
+	static SecretKey sec;
 	
 	static byte[] encrypted;
 	static byte[] decrypted;
 	static byte[] encryptedIn;
+	static byte[] signed;
 	
 	static Cipher ciph;
+	static clientListener listen;
+
+	static ObjectOutputStream out;
+	static ObjectInputStream in;
 	
 	public static void generateNonce () {
 		SecureRandom n = new SecureRandom();
@@ -84,13 +96,34 @@ public class clientMain {
 		}
 	}
 	
+	public static void encodeShared (String message) {
+		try {
+			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
+			ciph.init(Cipher.ENCRYPT_MODE, sec);
+			encrypted = ciph.doFinal(message.getBytes());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void signMessage(String message) {
+		try {
+			Signature sign = Signature.getInstance("SHA256withRSA");
+			sign.initSign(priv);
+			sign.update(message.getBytes(StandardCharsets.UTF_8));
+			signed = sign.sign();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
 	public static void connectKDC () {
 		try {
 			client = new Socket (host, port);
 			System.out.println("Connected: " + client.getRemoteSocketAddress());
 		
-			ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
-			ObjectInputStream in = new ObjectInputStream(client.getInputStream());
+			out = new ObjectOutputStream(client.getOutputStream());
+			in = new ObjectInputStream(client.getInputStream());
 			
 			generateNonce();
 			generateKeyPair();
@@ -132,14 +165,35 @@ public class clientMain {
 			sharedKey = new String(decrypted);
 			System.out.println("Decrypted Recieved: " + sharedKey);
 			
+			SecretKeyFactory fact = SecretKeyFactory.getInstance("DES");
+			byte[] b = sharedKey.getBytes();
+			sec = fact.generateSecret(new DESKeySpec(b));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
+	
 	public static void main(String[] args) {
 		connectKDC();
-		
-		
+		try {
+			listen = new clientListener(in, sharedKey);
+			listen.start();
+			Scanner s = new Scanner(System.in);
+			while(true) {
+				System.out.println("What would you like to send to other users?");
+				String message = s.nextLine();
+				message = clientID + "|" + message;
+				
+				encodeShared(message);
+				signMessage(message);
+				byte[] m = new byte[encrypted.length + signed.length];
+				System.arraycopy(encrypted, 0, m, 0, encrypted.length);
+				System.arraycopy(signed, 0, m, encrypted.length, signed.length);
+				out.writeObject(m);
+			}
+		} catch (Exception e) {
+			
+		}
 	}
 
 }

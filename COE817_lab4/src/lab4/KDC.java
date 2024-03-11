@@ -31,6 +31,14 @@ public class KDC {
 			e.printStackTrace();
 		}	
 	}
+	
+	public static void sendMessage(String sender, byte[] m, PublicKey p) {
+		for (serverThread t : threads) {
+			if (t.getClientID().equals(sender) == false) {
+				t.sendClientMessage(m, p);
+			}
+		}
+	}
 	public static void main(String[] args) {
 		int port = 50000;
 		ServerSocket s;

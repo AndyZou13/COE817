@@ -32,6 +32,7 @@ public class serverThread extends Thread{
 	private byte[] encryptedIn;
 	
 	private Cipher ciph;
+	
 	public serverThread(Socket sock, PublicKey pub, PrivateKey priv, String sharedKey) {
 		this.sock = sock;
 		this.pubServ = pub;
@@ -44,7 +45,10 @@ public class serverThread extends Thread{
 			e.printStackTrace();
 		}
 	}
-	
+	 
+	public String getClientID() {
+		return clientID;
+	}
 	
 	public void generateNonce () {
 		SecureRandom n = new SecureRandom();
@@ -133,10 +137,29 @@ public class serverThread extends Thread{
 			e.printStackTrace();
 		}
 	}
+	
+	public void sendClientMessage(byte[] m, PublicKey pub) {
+		try {
+			out.writeObject(pub);
+			out.writeObject(m);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
 	public void run() {
-		clientConnect();
-		
-		
+		try {
+			clientConnect();
+			
+			while (true) {
+				byte[] message = (byte[]) in.readObject();
+				KDC.sendMessage(clientID, message, pub);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 }
