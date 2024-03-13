@@ -148,7 +148,6 @@ public class serverThread extends Thread{
 		
 	}
 	
-	
 	public void run() {
 		try {
 			clientConnect();

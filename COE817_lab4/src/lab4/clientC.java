@@ -19,14 +19,14 @@ import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
 
-public class clientA {
+public class clientC {
 	
 	static Socket client;
 	static String host = "localhost";
 	static int port = 50000;
 	static String nonce;
 	static String nonceServ;
-	static String clientID = "clientA";
+	static String clientID = "clientC";
 	
 	static KeyPairGenerator keyGen;
 	static KeyPair keyPair;
@@ -199,8 +199,8 @@ public class clientA {
 				signMessage(message);
 				
 				SecureRandom n = new SecureRandom();
-				byte[] nBytes = new byte[5];
-				n.nextBytes(nBytes);
+				byte[] nBytes = {'1', '2', '3', '4', '5'};
+//				n.nextBytes(nBytes);
 				
 				encodeNonce(nBytes);
 				byte[] m = new byte[encrypted.length + signed.length + encryptedNonce.length];

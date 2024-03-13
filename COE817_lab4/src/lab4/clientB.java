@@ -19,14 +19,14 @@ import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
 
-public class clientA {
+public class clientB {
 	
 	static Socket client;
 	static String host = "localhost";
 	static int port = 50000;
 	static String nonce;
 	static String nonceServ;
-	static String clientID = "clientA";
+	static String clientID = "clientB";
 	
 	static KeyPairGenerator keyGen;
 	static KeyPair keyPair;
