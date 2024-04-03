@@ -1,19 +1,13 @@
 package main;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Base64;
+import java.util.Scanner;
 
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
@@ -22,35 +16,28 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
-public class BankThread extends Thread {
-	private Socket sock;
-	private ObjectOutputStream out;
-	private ObjectInputStream in;
-	private static String atmID;
+public class ATMB {
+
+	private static Socket client;
+	private static int port = 50000;
+	private static String host = "localhost";
+	private static ObjectOutputStream out;
+	private static ObjectInputStream in;
 	private static String nonce;
+	private static String atmID = "atmB";
+	private static byte[] encrypted;
+	private static byte[] decrypted;
+	private static byte[] encryptedIn;
+	
 	private static Cipher ciph;
 	private static String sharedKey = "BankKey817";
 	private static SecretKey sec;
 	private static SecretKey tempSec;
 	private static SecretKey masterSec;
-	private static byte[] encrypted;
-	private static byte[] decrypted;
-	private static byte[] encryptedIn;
-	private static Timestamp ts = new Timestamp(System.currentTimeMillis());
 	private static String masterString;
 	
 	private static SecretKey encryptionKey;
 	private static String macKey;
-	private static clientFile client;
-	public BankThread (Socket s) {
-		this.sock = s;
-		try {
-			out = new ObjectOutputStream(sock.getOutputStream());
-			in = new ObjectInputStream(sock.getInputStream());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
 	
 	private static void generateNonce () {
 		SecureRandom n = new SecureRandom();
@@ -69,8 +56,8 @@ public class BankThread extends Thread {
 			return null;
 		}
 	}
-
-	public static void encodeDES (String message, SecretKey s) {
+	
+	private static void encodeDES (String message, SecretKey s) {
 		try {
 			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
 			ciph.init(Cipher.ENCRYPT_MODE, s);
@@ -80,7 +67,7 @@ public class BankThread extends Thread {
 		}
 	}
 
-	public static void encodeDES (byte[] message, SecretKey s) {
+	private static void encodeDES (byte[] message, SecretKey s) {
 		try {
 			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
 			ciph.init(Cipher.ENCRYPT_MODE, s);
@@ -90,7 +77,7 @@ public class BankThread extends Thread {
 		}
 	}
 	
-	public static void decodeDES (byte[] message, SecretKey s) {
+	private static void decodeDES (byte[] message, SecretKey s) {
 		try {
 			ciph = Cipher.getInstance("DES/ECB/PKCS5Padding");
 			ciph.init(Cipher.DECRYPT_MODE, s);
@@ -116,22 +103,7 @@ public class BankThread extends Thread {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
-	
-	private static void addToLog (String message) {
-		try {
-			LocalDateTime ldt = Instant.ofEpochMilli(ts.getTime()).atZone(ZoneId.systemDefault()).toLocalDateTime();
-			String m = message + "|" + ldt;
-			encodeDES(m, sec);
-			String s = Base64.getEncoder().encodeToString(encrypted);
-			FileWriter file = new FileWriter("latest.log", true);
-			BufferedWriter write = new BufferedWriter(file);
-			write.write(s);
-			write.newLine();
-			write.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		
 	}
 	
 	public static String hmac(String data, String key){
@@ -159,114 +131,124 @@ public class BankThread extends Thread {
 		return false;
 	}
 	
-	@Override
-	public void run() {
+	public static void main(String[] args) {
 		try {
-			System.out.println("Connected: " + sock.getRemoteSocketAddress());
+			client = new Socket (host, port);
+			System.out.println("Connected: " + client.getRemoteSocketAddress());
+			out = new ObjectOutputStream(client.getOutputStream());
+			in = new ObjectInputStream(client.getInputStream());
 			generateNonce();
 			sec = generateSecret(sharedKey);
-			encryptedIn = (byte[])in.readObject();
-			decodeDES(encryptedIn, sec);
-			String message = new String(decrypted);
-			String[] arr = message.split("\\|");
-			String nonceA = arr[0];
-			if (Long.parseLong(arr[1]) - new Timestamp(System.currentTimeMillis()).getTime() > 20) {
-				System.out.println("Timestamp invalid, closing connection");
-				sock.close();
-				return;
-			}
-			atmID = arr[2];
-			tempSec = generateSecret(nonce);
-			message = arr[0] + "|" + nonce + "|" + Long.toString(ts.getTime());
+			String message = nonce + "|" + Long.toString(new Timestamp(System.currentTimeMillis()).getTime()) + "|" + atmID;
 			encodeDES(message, sec);
 			out.writeObject(encrypted);
-			encodeDES(tempSec.getEncoded(), sec);
-			out.writeObject(encrypted);
-			encryptedIn = (byte[]) in.readObject();
-			decodeDES(encryptedIn, tempSec);
-			arr = new String(decrypted).split("\\|");
-			if (arr[0].compareTo(nonce) != 0 || new Timestamp(System.currentTimeMillis()).getTime() - Long.parseLong(arr[1]) > 20) {
+			encryptedIn = (byte[])in.readObject();
+			decodeDES(encryptedIn, sec);
+			message = new String(decrypted);
+			String[] arr = message.split("\\|");
+			if (arr[0].compareTo(nonce) != 0 || Long.parseLong(arr[2]) - new Timestamp(System.currentTimeMillis()).getTime() > 20) {
 				System.out.println("Message invalid, closing connection");
-				sock.close();
+				client.close();
 				return;
 			}
-			masterGenerate(nonceA + nonce);
+			encryptedIn = (byte[])in.readObject();
+			decodeDES(encryptedIn, sec);
+			tempSec = new SecretKeySpec(decrypted, 0, decrypted.length, "DES"); 
+			message = arr[1] + "|" + Long.toString(new Timestamp(System.currentTimeMillis()).getTime());
+			encodeDES(message, tempSec);
+			out.writeObject(encrypted);
+			masterGenerate(nonce + arr[1]);
 			masterSec = generateSecret(masterString);
-			encryptedIn = (byte[]) in.readObject();
-			decodeDES(encryptedIn, masterSec);
-			if (masterString.compareTo(new String(decrypted)) != 0){
-				System.out.println("Master Secret Invalid, closing connection");
-				sock.close();
-				return;
-			}
 			encodeDES(masterString, masterSec);
 			out.writeObject(encrypted);
+			encryptedIn = (byte[]) in.readObject();
+			decodeDES(encryptedIn, masterSec);
+			if (masterString.compareTo(new String(decrypted)) != 0) {
+				System.out.println("Master String invalid, closing connection");
+				client.close();
+				return;
+			}
 			
 			encryptionKey = generateSecret(hmac("encryption", masterString));
 			macKey = hmac("macKey", masterString);
+			
+			Scanner input = new Scanner(System.in);
 			boolean loggedIn = false;
+			System.out.println("***** Welcome to the COE817 ATM *****");
 			while (loggedIn == false) {
+				System.out.println("Please enter your username:");
+				String user = input.nextLine();
+				System.out.println("Please enter your password:");
+				String pass = input.nextLine();
+				message = user + "|" + pass + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
+				encodeDES(message, encryptionKey);
+				out.writeObject(encrypted);
 				encryptedIn = (byte[]) in.readObject();
 				decodeDES(encryptedIn, encryptionKey);
 				String[] ar = new String(decrypted).split("\\|");
 				if (verifyMac(ar) == false) {
 					System.out.println("Invalid message detected, closing connection");
-					sock.close();
+					client.close();
 					return;
 				}
-				for (clientFile c : BankServer.getClients()) {
-					String u = c.getLogin();
-					if (u.compareTo(ar[0] + "|" + ar[1]) == 0) {
-						message = "Login Successful" + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
-						loggedIn = true;
-						client = c;
-						encodeDES(message, encryptionKey);
-						out.writeObject(encrypted);
-						break;
-					}
+				System.out.println(new String(ar[0]));
+				if ("Invalid Login".compareTo(new String(ar[0])) != 0) {
+					loggedIn = true;
+					System.out.println("***" + ar[0] + "***");
+					break;
 				}
-				if (loggedIn != true) {
-					message = "Invalid Login" + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
-					encodeDES(message, encryptionKey);
-					out.writeObject(encrypted);
-				}
+				System.out.println("***" + ar[0] + "***");
+				
 			}
 			
 			while (true) {
-				System.out.println("in");
-				encryptedIn = (byte[]) in.readObject();
-				decodeDES(encryptedIn, encryptionKey);
-				String[] a = new String(decrypted).split("\\|");
-				if (verifyMac(a) == false) {
-					System.out.println("Invalid message detected, closing connection");
-					sock.close();
-					return;
-				}
+				System.out.println("Please choose from the actions below by submitting a number (1, 2, 3, 4):");
+				System.out.println("1: Deposit");
+				System.out.println("2: Withdrawl");
+				System.out.println("3: Check Balance");
+				System.out.println("4: Log out");
+				int option = Integer.parseInt(input.nextLine());
+				double amt;
 				String m;
-				switch (Integer.parseInt(a[0])) {
+				switch (option) {
 					case 1:
-						client.depositMoney(Double.parseDouble(a[1]));
-						addToLog(client.getLogin().split("\\|")[0] + "|" + "Deposit");
-						break;
-					case 2:
-						client.withdrawMoney(Double.parseDouble(a[1]));
-						addToLog(client.getLogin().split("\\|")[0] + "|" + "Withdraw");
-						break;
-					case 3:
-						m = Double.toString(client.getBalance()) + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|"+ macKey;
-						System.out.println(m);
+						System.out.println("How much do you want to deposit:");
+						amt = Double.parseDouble(input.nextLine());
+						m = "1" + "|" + Double.toString(amt) + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
 						encodeDES(m, encryptionKey);
 						out.writeObject(encrypted);
-						addToLog(client.getLogin().split("\\|")[0] + "|" + "CheckBalance");
+						break;
+					case 2:
+						System.out.println("How much do you want to withdraw:");
+						amt = Double.parseDouble(input.nextLine());
+						m = "2" + "|" + Double.toString(amt) + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
+						encodeDES(m, encryptionKey);
+						out.writeObject(encrypted);
+						break;
+					case 3:
+						m = "3" + "|" + new Timestamp(System.currentTimeMillis()).getTime() + "|" + macKey;
+						encodeDES(m, encryptionKey);
+						out.writeObject(encrypted);
+						encryptedIn = (byte[]) in.readObject();
+						decodeDES(encryptedIn, encryptionKey);
+						String[] a = new String(decrypted).split("\\|");
+						if (verifyMac(a) == false) {
+							System.out.println("Invalid message detected, closing connection");
+							client.close();
+							return;
+						}
+						System.out.println("Current Balance: $" + a[0]);
 						break;
 					case 4:
-						sock.close();
+						System.out.println("Thank you for choosing COE817 ATM");
+						client.close();
 						return;
 				}
 			}
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 }
